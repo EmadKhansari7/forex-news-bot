@@ -94,7 +94,7 @@ folder as the project matures.
   - [x] Logging system (file + console output, log levels)
   - [x] News provider (fetching from ForexFactory JSON feed)
   - [x] Database layer (duplicate protection, SQLite models)
-  - [ ] Filter engine (currency / impact filters)
+  - [x] Filter engine (currency / impact filters)
   - [ ] Telegram bot (basic message sending)
   - [ ] Scheduler (periodic news checks)
   - [ ] Admin menu (inline keyboards)
