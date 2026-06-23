@@ -96,7 +96,10 @@ folder as the project matures.
   - [x] Database layer (duplicate protection, SQLite models)
   - [x] Filter engine (currency / impact filters)
   - [x] Telegram bot (basic message sending)
-  - [ ] Scheduler (periodic news checks)
+  - [x] Scheduler (periodic news checks)
+  - [ ] **Architecture update: multi-tenant support** (multiple channel
+        managers, per-destination filters/settings) — planned before
+        building the admin menu
   - [ ] Admin menu (inline keyboards)
   - [ ] Alert system (pre-release notifications)
   - [ ] Multi-destination publishing
