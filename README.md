@@ -89,10 +89,22 @@ folder as the project matures.
 - [x] Project planning and architecture design
 - [x] Project setup (folder structure, dependencies, environment config)
 - [x] GitHub repository setup
-- [ ] Core development (news fetching, database, filters, Telegram bot, admin panel)
+- [ ] Core development (in progress)
+  - [x] Config layer (environment variable loading)
+  - [x] Logging system (file + console output, log levels)
+  - [ ] News provider (fetching from ForexFactory JSON feed)
+  - [ ] Database layer (duplicate protection, SQLite models)
+  - [ ] Filter engine (currency / impact filters)
+  - [ ] Telegram bot (basic message sending)
+  - [ ] Scheduler (periodic news checks)
+  - [ ] Admin menu (inline keyboards)
+  - [ ] Alert system (pre-release notifications)
+  - [ ] Multi-destination publishing
 - [ ] Testing
 - [ ] Deployment (local, GitHub Actions, Oracle Cloud Free Tier, VPS)
 - [ ] Maintenance documentation
+
+
 
 ## License
 
