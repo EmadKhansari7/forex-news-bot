@@ -92,7 +92,7 @@ folder as the project matures.
 - [ ] Core development (in progress)
   - [x] Config layer (environment variable loading)
   - [x] Logging system (file + console output, log levels)
-  - [ ] News provider (fetching from ForexFactory JSON feed)
+  - [x] News provider (fetching from ForexFactory JSON feed)
   - [ ] Database layer (duplicate protection, SQLite models)
   - [ ] Filter engine (currency / impact filters)
   - [ ] Telegram bot (basic message sending)
@@ -103,8 +103,6 @@ folder as the project matures.
 - [ ] Testing
 - [ ] Deployment (local, GitHub Actions, Oracle Cloud Free Tier, VPS)
 - [ ] Maintenance documentation
-
-
 
 ## License
 
