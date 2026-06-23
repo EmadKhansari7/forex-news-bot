@@ -95,7 +95,7 @@ folder as the project matures.
   - [x] News provider (fetching from ForexFactory JSON feed)
   - [x] Database layer (duplicate protection, SQLite models)
   - [x] Filter engine (currency / impact filters)
-  - [ ] Telegram bot (basic message sending)
+  - [x] Telegram bot (basic message sending)
   - [ ] Scheduler (periodic news checks)
   - [ ] Admin menu (inline keyboards)
   - [ ] Alert system (pre-release notifications)
