@@ -97,9 +97,8 @@ folder as the project matures.
   - [x] Filter engine (currency / impact filters)
   - [x] Telegram bot (basic message sending)
   - [x] Scheduler (periodic news checks)
-  - [ ] **Architecture update: multi-tenant support** (multiple channel
-        managers, per-destination filters/settings) — planned before
-        building the admin menu
+  - [x] **Architecture update: multi-tenant support** (multiple channel
+        managers, per-destination filters/settings) — completed
   - [ ] Admin menu (inline keyboards)
   - [ ] Alert system (pre-release notifications)
   - [ ] Multi-destination publishing
