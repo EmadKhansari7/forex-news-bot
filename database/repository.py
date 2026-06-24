@@ -7,7 +7,6 @@ from database.models import (
     DestinationSettings,
     FilterSettings,
     GlobalSettings,
-    ManagerDestinationLink,
     SentNews,
 )
 from services.news_provider.news_item import NewsItem
@@ -31,7 +30,6 @@ def is_news_already_sent(unique_id: str, destination_id: int) -> bool:
 
 
 def mark_news_as_sent(news_item: NewsItem, destination_id: int) -> None:
-
     with get_session() as session:
         new_record = SentNews(
             destination_id=destination_id,
@@ -41,100 +39,6 @@ def mark_news_as_sent(news_item: NewsItem, destination_id: int) -> None:
         )
         session.add(new_record)
         session.commit()
-
-
-
-def get_active_destinations() -> list[Destination]:
-    
-    with get_session() as session:
-        return (
-            session.query(Destination)
-            .filter(Destination.is_active == True)  # noqa: E712
-            .all()
-        )
-
-
-def get_or_create_destination(chat_id: str, name: str) -> Destination:
-
-    with get_session() as session:
-        destination = (
-            session.query(Destination)
-            .filter(Destination.chat_id == chat_id)
-            .first()
-        )
-
-        if destination is None:
-            destination = Destination(chat_id=chat_id, name=name, is_active=True)
-            session.add(destination)
-            session.commit()
-            session.refresh(destination)
-
-            _seed_default_filters_for_destination(session, destination.id)
-            session.add(DestinationSettings(destination_id=destination.id))
-            session.commit()
-
-        return destination
-
-
-def _seed_default_filters_for_destination(session, destination_id: int) -> None:
-
-    for currency in SUPPORTED_CURRENCIES:
-        session.add(
-            FilterSettings(
-                destination_id=destination_id,
-                currency=currency,
-                is_enabled=True,
-                min_impact="Medium",
-            )
-        )
-
-
-
-
-def get_enabled_currencies_for_destination(destination_id: int) -> list[str]:
-
-    with get_session() as session:
-        enabled_filters = (
-            session.query(FilterSettings)
-            .filter(
-                FilterSettings.destination_id == destination_id,
-                FilterSettings.is_enabled == True,  # noqa: E712
-            )
-            .all()
-        )
-        return [item.currency for item in enabled_filters]
-
-
-def get_filter_settings(destination_id: int, currency: str) -> FilterSettings | None:
-
-    with get_session() as session:
-        return (
-            session.query(FilterSettings)
-            .filter(
-                FilterSettings.destination_id == destination_id,
-                FilterSettings.currency == currency,
-            )
-            .first()
-        )
-
-
-
-def get_destination_settings(destination_id: int) -> DestinationSettings:
-
-    with get_session() as session:
-        settings = (
-            session.query(DestinationSettings)
-            .filter(DestinationSettings.destination_id == destination_id)
-            .first()
-        )
-
-        if settings is None:
-            settings = DestinationSettings(destination_id=destination_id)
-            session.add(settings)
-            session.commit()
-            session.refresh(settings)
-
-        return settings
 
 
 def get_global_settings() -> GlobalSettings:
@@ -151,8 +55,28 @@ def get_global_settings() -> GlobalSettings:
         return settings
 
 
+def add_channel_manager(telegram_user_id: int, display_name: str) -> ChannelManager:
 
-def get_or_create_manager(telegram_user_id: int, is_owner: bool = False) -> ChannelManager:
+    with get_session() as session:
+        existing = (
+            session.query(ChannelManager)
+            .filter(ChannelManager.telegram_user_id == telegram_user_id)
+            .first()
+        )
+        if existing is not None:
+            return existing
+
+        new_manager = ChannelManager(
+            telegram_user_id=telegram_user_id,
+            display_name=display_name,
+        )
+        session.add(new_manager)
+        session.commit()
+        session.refresh(new_manager)
+        return new_manager
+
+
+def grant_manager_access(telegram_user_id: int, destination_id: int) -> None:
 
     with get_session() as session:
         manager = (
@@ -160,38 +84,13 @@ def get_or_create_manager(telegram_user_id: int, is_owner: bool = False) -> Chan
             .filter(ChannelManager.telegram_user_id == telegram_user_id)
             .first()
         )
+        destination = session.get(Destination, destination_id)
 
-        if manager is None:
-            manager = ChannelManager(
-                telegram_user_id=telegram_user_id,
-                is_owner=is_owner,
-            )
-            session.add(manager)
-            session.commit()
-            session.refresh(manager)
+        if manager is None or destination is None:
+            raise ValueError("Manager or destination not found")
 
-        return manager
-
-
-def link_manager_to_destination(manager_id: int, destination_id: int) -> None:
-
-    with get_session() as session:
-        existing_link = (
-            session.query(ManagerDestinationLink)
-            .filter(
-                ManagerDestinationLink.manager_id == manager_id,
-                ManagerDestinationLink.destination_id == destination_id,
-            )
-            .first()
-        )
-
-        if existing_link is None:
-            session.add(
-                ManagerDestinationLink(
-                    manager_id=manager_id,
-                    destination_id=destination_id,
-                )
-            )
+        if destination not in manager.destinations:
+            manager.destinations.append(destination)
             session.commit()
 
 
@@ -203,15 +102,119 @@ def get_destinations_for_manager(telegram_user_id: int) -> list[Destination]:
             .filter(ChannelManager.telegram_user_id == telegram_user_id)
             .first()
         )
-
         if manager is None:
             return []
+        return list(manager.destinations)
 
-        if manager.is_owner:
-            return (
-                session.query(Destination)
-                .filter(Destination.is_active == True)  # noqa: E712
-                .all()
+
+
+def add_destination(chat_id: str, name: str) -> Destination:
+ 
+    with get_session() as session:
+        existing = (
+            session.query(Destination)
+            .filter(Destination.chat_id == chat_id)
+            .first()
+        )
+        if existing is not None:
+            return existing
+
+        new_destination = Destination(chat_id=chat_id, name=name, is_active=True)
+
+        for currency in SUPPORTED_CURRENCIES:
+            new_destination.filters.append(
+                FilterSettings(currency=currency, is_enabled=True, min_impact="Medium")
             )
 
-        return manager.managed_destinations
+        new_destination.settings = DestinationSettings()
+
+        session.add(new_destination)
+        session.commit()
+        session.refresh(new_destination)
+        return new_destination
+
+
+def get_active_destinations() -> list[Destination]:
+    with get_session() as session:
+        return (
+            session.query(Destination)
+            .filter(Destination.is_active == True)  # noqa: E712
+            .all()
+        )
+
+
+def get_enabled_filters_for_destination(destination_id: int) -> list[FilterSettings]:
+
+    with get_session() as session:
+        return (
+            session.query(FilterSettings)
+            .filter(
+                FilterSettings.destination_id == destination_id,
+                FilterSettings.is_enabled == True,  # noqa: E712
+            )
+            .all()
+        )
+
+
+def get_all_filters_for_destination(destination_id: int) -> list[FilterSettings]:
+
+    with get_session() as session:
+        return (
+            session.query(FilterSettings)
+            .filter(FilterSettings.destination_id == destination_id)
+            .all()
+        )
+
+
+def toggle_currency_filter(destination_id: int, currency: str) -> FilterSettings:
+
+    with get_session() as session:
+        filter_row = (
+            session.query(FilterSettings)
+            .filter(
+                FilterSettings.destination_id == destination_id,
+                FilterSettings.currency == currency,
+            )
+            .first()
+        )
+
+        if filter_row is not None:
+            filter_row.is_enabled = not filter_row.is_enabled
+            session.commit()
+            session.refresh(filter_row)
+
+        return filter_row
+
+
+def get_destination_by_id(destination_id: int) -> Destination | None:
+
+    with get_session() as session:
+        return session.get(Destination, destination_id)
+
+
+def toggle_destination_alert(destination_id: int, alert_type: str) -> DestinationSettings | None:
+
+    field_map = {
+        "15min": "alert_15min_enabled",
+        "5min": "alert_5min_enabled",
+        "at_release": "alert_at_release_enabled",
+    }
+    field_name = field_map.get(alert_type)
+
+    if field_name is None:
+        return None
+
+    with get_session() as session:
+        settings_row = (
+            session.query(DestinationSettings)
+            .filter(DestinationSettings.destination_id == destination_id)
+            .first()
+        )
+
+        if settings_row is not None:
+            current_value = getattr(settings_row, field_name)
+            setattr(settings_row, field_name, not current_value)
+            session.commit()
+            session.refresh(settings_row)
+
+        return settings_row
