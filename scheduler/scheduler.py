@@ -1,8 +1,9 @@
 
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config.logger import get_logger
-from database.repository import get_bot_settings
+from database.repository import get_global_settings
 from scheduler.news_job import run_news_check
 
 logger = get_logger(__name__)
@@ -12,7 +13,7 @@ _scheduler = AsyncIOScheduler()
 
 def start_scheduler() -> None:
 
-    settings = get_bot_settings()
+    settings = get_global_settings()
     interval_minutes = settings.check_interval_minutes
 
     logger.info(f"Scheduling news check job to run every {interval_minutes} minutes")
@@ -24,7 +25,7 @@ def start_scheduler() -> None:
         trigger="interval",
         minutes=interval_minutes,
         id="news_check_job",
-
+    
         next_run_time=datetime.now(),
     )
 

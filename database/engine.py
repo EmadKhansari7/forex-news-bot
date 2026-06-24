@@ -1,5 +1,4 @@
 
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -9,8 +8,9 @@ from database.models import Base
 
 logger = get_logger(__name__)
 
-# DATABASE_URL = "postgresql://user:password@localhost/dbname"
+
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+
 
 engine = create_engine(
     DATABASE_URL,
@@ -18,7 +18,8 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
 )
 
-SessionLocal = sessionmaker(bind=engine)
+
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 def init_database() -> None:

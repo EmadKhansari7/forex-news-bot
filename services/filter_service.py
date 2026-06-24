@@ -1,8 +1,6 @@
 
-from database.engine import get_session
-from database.models import FilterSettings
+from database.repository import get_filter_settings
 from services.news_provider.news_item import NewsItem
-
 
 IMPACT_LEVELS = {
     "Low": 1,
@@ -11,19 +9,9 @@ IMPACT_LEVELS = {
 }
 
 
-def _get_filter_settings_for_currency(currency: str) -> FilterSettings | None:
+def should_send_news(news_item: NewsItem, destination_id: int) -> bool:
 
-    with get_session() as session:
-        return (
-            session.query(FilterSettings)
-            .filter(FilterSettings.currency == currency)
-            .first()
-        )
-
-
-def should_send_news(news_item: NewsItem) -> bool:
-
-    filter_settings = _get_filter_settings_for_currency(news_item.currency)
+    filter_settings = get_filter_settings(destination_id, news_item.currency)
 
     if filter_settings is None:
         return False
@@ -40,6 +28,11 @@ def should_send_news(news_item: NewsItem) -> bool:
     return True
 
 
-def filter_news_list(news_items: list[NewsItem]) -> list[NewsItem]:
+def filter_news_list_for_destination(
+    news_items: list[NewsItem], destination_id: int
+) -> list[NewsItem]:
 
-    return [item for item in news_items if should_send_news(item)]
+    return [
+        item for item in news_items
+        if should_send_news(item, destination_id)
+    ]
