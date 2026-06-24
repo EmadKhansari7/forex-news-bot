@@ -13,30 +13,35 @@ logger = get_logger(__name__)
 
 
 def _seed_owner_as_manager() -> None:
-
     for admin_id in TELEGRAM_ADMIN_IDS:
         add_channel_manager(telegram_user_id=admin_id, display_name="Owner")
         logger.info(f"Ensured owner {admin_id} exists as a channel manager")
 
 
-def main() -> None:
-
-    logger.info("Starting Forex News Bot...")
-
-    init_database()
-    _seed_owner_as_manager()
-
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CallbackQueryHandler(button_callback_handler))
+async def _on_startup(application) -> None:
 
     settings = get_global_settings()
     logger.info(f"News check interval: {settings.check_interval_minutes} minutes")
     start_scheduler()
 
-    logger.info("Bot is now running. Press Ctrl+C to stop.")
 
+def main() -> None:
+    logger.info("Starting Forex News Bot...")
+
+    init_database()
+    _seed_owner_as_manager()
+
+    application = (
+        Application.builder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .post_init(_on_startup)
+        .build()
+    )
+
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CallbackQueryHandler(button_callback_handler))
+
+    logger.info("Bot is now running. Press Ctrl+C to stop.")
     application.run_polling()
 
 
