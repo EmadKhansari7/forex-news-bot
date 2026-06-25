@@ -89,7 +89,7 @@ folder as the project matures.
 - [x] Project planning and architecture design
 - [x] Project setup (folder structure, dependencies, environment config)
 - [x] GitHub repository setup
-- [ ] Core development (in progress)
+- [x] Core development (in progress)
   - [x] Config layer (environment variable loading)
   - [x] Logging system (file + console output, log levels)
   - [x] News provider (fetching from ForexFactory JSON feed)
@@ -99,9 +99,9 @@ folder as the project matures.
   - [x] Scheduler (periodic news checks)
   - [x] **Architecture update: multi-tenant support** (multiple channel
         managers, per-destination filters/settings) — completed
-  - [ ] Admin menu (inline keyboards)
-  - [ ] Alert system (pre-release notifications)
-  - [ ] Multi-destination publishing
+  - [x] Admin menu (inline keyboards)
+  - [x] Alert system (pre-release notifications)
+  - [x] Multi-destination publishing
 - [ ] Testing
 - [ ] Deployment (local, GitHub Actions, Oracle Cloud Free Tier, VPS)
 - [ ] Maintenance documentation
