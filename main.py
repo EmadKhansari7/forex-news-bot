@@ -1,7 +1,21 @@
 
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ConversationHandler,
+    MessageHandler,
+    filters,
+)
 
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler
-
+from bot.handlers.add_channel_handler import (
+    WAITING_FOR_CHAT_ID,
+    WAITING_FOR_NAME,
+    cancel_add_channel,
+    receive_channel_name,
+    receive_chat_id,
+    start_add_channel,
+)
 from bot.handlers.admin_handlers import button_callback_handler, start_command
 from config.logger import get_logger
 from config.settings import TELEGRAM_ADMIN_IDS, TELEGRAM_BOT_TOKEN
@@ -19,7 +33,6 @@ def _seed_owner_as_manager() -> None:
 
 
 async def _on_startup(application) -> None:
-
     settings = get_global_settings()
     logger.info(f"News check interval: {settings.check_interval_minutes} minutes")
     start_scheduler()
@@ -39,6 +52,24 @@ def main() -> None:
     )
 
     application.add_handler(CommandHandler("start", start_command))
+
+    add_channel_conversation = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_add_channel, pattern="^menu:add_channel$")
+        ],
+        states={
+            WAITING_FOR_CHAT_ID: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_chat_id)
+            ],
+            WAITING_FOR_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_channel_name)
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_add_channel)],
+    )
+    application.add_handler(add_channel_conversation)
+
+
     application.add_handler(CallbackQueryHandler(button_callback_handler))
 
     logger.info("Bot is now running. Press Ctrl+C to stop.")
