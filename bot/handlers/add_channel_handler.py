@@ -4,9 +4,12 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from bot.keyboards.main_menu import build_channels_list_menu
 from config.logger import get_logger
-from database.engine import get_session
-from database.models import ChannelManager, Destination
-from database.repository import add_channel_manager, add_destination, get_destinations_for_manager
+from database.repository import (
+    add_channel_manager,
+    add_destination,
+    get_destinations_for_manager,
+    grant_manager_access,
+)
 
 logger = get_logger(__name__)
 
@@ -41,26 +44,6 @@ async def receive_chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return WAITING_FOR_NAME
 
 
-def _link_manager_to_destination_directly(telegram_user_id: int, destination_id: int) -> None:
-
-    with get_session() as session:
-        manager = (
-            session.query(ChannelManager)
-            .filter(ChannelManager.telegram_user_id == telegram_user_id)
-            .first()
-        )
-        destination = session.get(Destination, destination_id)
-
-        if manager is None:
-            raise ValueError(f"Manager with telegram_user_id={telegram_user_id} not found")
-        if destination is None:
-            raise ValueError(f"Destination with id={destination_id} not found")
-
-        if destination not in manager.destinations:
-            manager.destinations.append(destination)
-            session.commit()
-
-
 async def receive_channel_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     channel_name = update.message.text.strip()
     chat_id = context.user_data["new_channel_chat_id"]
@@ -74,7 +57,7 @@ async def receive_channel_name(update: Update, context: ContextTypes.DEFAULT_TYP
             display_name=update.effective_user.first_name or "Manager",
         )
 
-        _link_manager_to_destination_directly(user_id, destination.id)
+        grant_manager_access(telegram_user_id=user_id, destination_id=destination.id)
 
     except Exception as error:
         logger.error(f"Failed to add channel for user {user_id}: {error}")

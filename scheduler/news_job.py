@@ -1,4 +1,5 @@
 
+import asyncio
 
 from config.logger import get_logger
 from database.repository import (
@@ -13,9 +14,10 @@ from services.telegram_service import send_message
 
 logger = get_logger(__name__)
 
+DELAY_BETWEEN_MESSAGES_SECONDS = 1.5
+
 
 async def run_news_check() -> None:
-
     logger.info("Starting news check cycle")
 
     try:
@@ -41,7 +43,6 @@ async def run_news_check() -> None:
 
 
 async def _process_destination(destination, all_news: list[NewsItem]) -> None:
-
     filtered_news = filter_news_list_for_destination(all_news, destination.id)
 
     if not filtered_news:
@@ -70,9 +71,10 @@ async def _process_destination(destination, all_news: list[NewsItem]) -> None:
         if success:
             mark_news_as_sent(news_item, destination.id)
 
+        await asyncio.sleep(DELAY_BETWEEN_MESSAGES_SECONDS)
+
 
 def _format_news_message(news_item: NewsItem) -> str:
-
     forecast_line = f"\nForecast: {news_item.forecast}" if news_item.forecast else ""
     previous_line = f"\nPrevious: {news_item.previous}" if news_item.previous else ""
 

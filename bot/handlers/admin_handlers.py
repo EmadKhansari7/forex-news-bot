@@ -2,6 +2,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from bot.keyboards.alert_menu import build_alert_settings_menu
 from bot.keyboards.filter_menu import build_currency_filter_menu
 from bot.keyboards.main_menu import (
     build_channels_list_menu,
@@ -12,22 +13,22 @@ from config.logger import get_logger
 from database.repository import (
     get_all_filters_for_destination,
     get_destination_by_id,
+    get_destination_settings,
     get_destinations_for_manager,
     toggle_currency_filter,
+    toggle_destination_alert,
 )
 
 logger = get_logger(__name__)
 
 
 def _is_authorized_for_destination(telegram_user_id: int, destination_id: int) -> bool:
-
     allowed_destinations = get_destinations_for_manager(telegram_user_id)
     allowed_ids = {destination.id for destination in allowed_destinations}
     return destination_id in allowed_ids
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
     user_id = update.effective_user.id
     logger.info(f"User {user_id} started the bot")
 
@@ -39,9 +40,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-
     query = update.callback_query
-    await query.answer()  
+    await query.answer()
 
     user_id = update.effective_user.id
     data = query.data
@@ -73,7 +73,6 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def _show_channels_list(query, user_id: int) -> None:
-
     destinations = get_destinations_for_manager(user_id)
 
     if not destinations:
@@ -94,7 +93,6 @@ async def _handle_destination_action(query, user_id: int, parts: list[str]) -> N
 
     destination_id = int(parts[1])
     action = parts[2]
-
 
     if not _is_authorized_for_destination(user_id, destination_id):
         logger.warning(
@@ -125,13 +123,29 @@ async def _handle_destination_action(query, user_id: int, parts: list[str]) -> N
     elif action == "toggle_currency":
         currency = parts[3]
         toggle_currency_filter(destination_id, currency)
-
-
         updated_filters = get_all_filters_for_destination(destination_id)
         await query.edit_message_text(
             f"Currency filters for {destination.name}:\n"
             f"(tap a currency to toggle it on/off)",
             reply_markup=build_currency_filter_menu(destination_id, updated_filters),
+        )
+
+    elif action == "alerts":
+        settings = get_destination_settings(destination_id)
+        await query.edit_message_text(
+            f"Alert settings for {destination.name}:\n"
+            f"(tap to toggle each alert on/off)",
+            reply_markup=build_alert_settings_menu(destination_id, settings),
+        )
+
+    elif action == "toggle_alert":
+        alert_type = parts[3]
+        toggle_destination_alert(destination_id, alert_type)
+        updated_settings = get_destination_settings(destination_id)
+        await query.edit_message_text(
+            f"Alert settings for {destination.name}:\n"
+            f"(tap to toggle each alert on/off)",
+            reply_markup=build_alert_settings_menu(destination_id, updated_settings),
         )
 
     else:

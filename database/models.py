@@ -1,4 +1,5 @@
 
+
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
@@ -10,7 +11,6 @@ class Base(DeclarativeBase):
 
 
 class ChannelManager(Base):
-
     __tablename__ = "channel_managers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -19,7 +19,6 @@ class ChannelManager(Base):
     added_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
-
 
     destinations: Mapped[list["Destination"]] = relationship(
         secondary="manager_destination_links",
@@ -31,7 +30,6 @@ class ChannelManager(Base):
 
 
 class Destination(Base):
-
     __tablename__ = "destinations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -44,7 +42,6 @@ class Destination(Base):
         back_populates="destinations",
     )
 
-
     filters: Mapped[list["FilterSettings"]] = relationship(
         back_populates="destination",
         cascade="all, delete-orphan",
@@ -52,7 +49,7 @@ class Destination(Base):
 
     settings: Mapped["DestinationSettings"] = relationship(
         back_populates="destination",
-        uselist=False,  
+        uselist=False,
         cascade="all, delete-orphan",
     )
 
@@ -61,7 +58,6 @@ class Destination(Base):
 
 
 class ManagerDestinationLink(Base):
-   
     __tablename__ = "manager_destination_links"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -70,7 +66,6 @@ class ManagerDestinationLink(Base):
 
 
 class FilterSettings(Base):
-
     __tablename__ = "filter_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -86,7 +81,6 @@ class FilterSettings(Base):
 
 
 class DestinationSettings(Base):
-
     __tablename__ = "destination_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -105,7 +99,6 @@ class DestinationSettings(Base):
 
 
 class GlobalSettings(Base):
-
     __tablename__ = "global_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -116,7 +109,6 @@ class GlobalSettings(Base):
 
 
 class SentNews(Base):
-
     __tablename__ = "sent_news"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
