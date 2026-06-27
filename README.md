@@ -90,18 +90,7 @@ folder as the project matures.
 - [x] Project setup (folder structure, dependencies, environment config)
 - [x] GitHub repository setup
 - [x] Core development (in progress)
-  - [x] Config layer (environment variable loading)
-  - [x] Logging system (file + console output, log levels)
-  - [x] News provider (fetching from ForexFactory JSON feed)
-  - [x] Database layer (duplicate protection, SQLite models)
-  - [x] Filter engine (currency / impact filters)
-  - [x] Telegram bot (basic message sending)
-  - [x] Scheduler (periodic news checks)
-  - [x] **Architecture update: multi-tenant support** (multiple channel
-        managers, per-destination filters/settings) — completed
-  - [x] Admin menu (inline keyboards)
-  - [x] Alert system (pre-release notifications)
-  - [x] Multi-destination publishing
+  - [x] vr1 done
 - [ ] Testing
 - [ ] Deployment (local, GitHub Actions, Oracle Cloud Free Tier, VPS)
 - [ ] Maintenance documentation
