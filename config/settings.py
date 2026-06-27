@@ -1,5 +1,3 @@
-
-
 import os
 from dotenv import load_dotenv
 
@@ -30,6 +28,7 @@ def _parse_admin_ids(raw_value: str) -> list[int]:
 TELEGRAM_ADMIN_IDS: list[int] = _parse_admin_ids(_get_required_env("TELEGRAM_ADMIN_IDS"))
 
 
+BOT_OWNER_USERNAME: str = os.getenv("BOT_OWNER_USERNAME", "")
 
 
 DATABASE_PATH: str = os.getenv("DATABASE_PATH", "database/forex_news_bot.db")
