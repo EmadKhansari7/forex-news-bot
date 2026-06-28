@@ -12,6 +12,9 @@ from services.news_provider.news_item import NewsItem
 
 SUPPORTED_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "NZD", "CHF"]
 
+# گزینه‌های فاصله‌ی زمانی که در منوی Bot Settings نشان داده می‌شوند
+SUPPORTED_CHECK_INTERVALS_MINUTES = [5, 10, 15, 30, 60, 120]
+
 
 
 def is_news_already_sent(unique_id: str, destination_id: int) -> bool:
@@ -51,6 +54,40 @@ def get_global_settings() -> GlobalSettings:
             session.commit()
             session.refresh(settings)
 
+        return settings
+
+
+def update_check_interval(minutes: int) -> GlobalSettings:
+    """Update the global news-check interval (in minutes).
+
+    This is a single, shared setting: it affects every destination across
+    every manager, since the scheduler only runs one news-check job. Any
+    manager with at least one destination is allowed to change it (this
+    is intentional per project decision, not an oversight).
+
+    The caller is responsible for also calling
+    scheduler.scheduler.reschedule_news_check(minutes) so the running job
+    picks up the new interval immediately, instead of waiting for the bot
+    to restart.
+    """
+
+    if minutes not in SUPPORTED_CHECK_INTERVALS_MINUTES:
+        raise ValueError(
+            f"Unsupported interval: {minutes}. "
+            f"Must be one of {SUPPORTED_CHECK_INTERVALS_MINUTES}."
+        )
+
+    with get_session() as session:
+        settings = session.query(GlobalSettings).first()
+
+        if settings is None:
+            settings = GlobalSettings(check_interval_minutes=minutes)
+            session.add(settings)
+        else:
+            settings.check_interval_minutes = minutes
+
+        session.commit()
+        session.refresh(settings)
         return settings
 
 
@@ -189,16 +226,6 @@ def get_destination_by_id(destination_id: int) -> Destination | None:
 
     with get_session() as session:
         return session.get(Destination, destination_id)
-
-
-def get_destination_settings(destination_id: int) -> DestinationSettings | None:
-
-    with get_session() as session:
-        return (
-            session.query(DestinationSettings)
-            .filter(DestinationSettings.destination_id == destination_id)
-            .first()
-        )
 
 
 def toggle_destination_alert(destination_id: int, alert_type: str) -> DestinationSettings | None:
