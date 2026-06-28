@@ -1,4 +1,3 @@
-
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -15,6 +14,12 @@ from bot.handlers.add_channel_handler import (
     receive_channel_name,
     receive_chat_id,
     start_add_channel,
+)
+from bot.handlers.add_manager_handler import (
+    WAITING_FOR_NEW_MANAGER_ID,
+    cancel_add_manager,
+    receive_new_manager_id,
+    start_add_manager,
 )
 from bot.handlers.admin_handlers import button_callback_handler, start_command
 from config.logger import get_logger
@@ -68,6 +73,19 @@ def main() -> None:
         fallbacks=[CommandHandler("cancel", cancel_add_channel)],
     )
     application.add_handler(add_channel_conversation)
+
+    add_manager_conversation = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_add_manager, pattern="^menu:add_manager$")
+        ],
+        states={
+            WAITING_FOR_NEW_MANAGER_ID: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_new_manager_id)
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", cancel_add_manager)],
+    )
+    application.add_handler(add_manager_conversation)
 
 
     application.add_handler(CallbackQueryHandler(button_callback_handler))

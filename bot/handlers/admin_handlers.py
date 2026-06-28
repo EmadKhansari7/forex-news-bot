@@ -20,6 +20,7 @@ from database.repository import (
     get_destination_by_id,
     get_destinations_for_manager,
     get_global_settings,
+    is_authorized_user,
     reactivate_destination,
     toggle_currency_filter,
     update_check_interval,
@@ -61,6 +62,19 @@ def _build_welcome_message() -> str:
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     user_id = update.effective_user.id
+
+    # دسترسی به ربات بسته است: فقط کسانی که owner از قبل با "Add new
+    # manager" تأییدشان کرده (یا owner خودش، که در main.py خودکار seed
+    # می‌شود) اجازه‌ی دیدن منو را دارند. این جلوی این را می‌گیرد که هر کسی
+    # که لینک ربات را پیدا کند بتواند خودش کانال اضافه کند.
+    if not is_authorized_user(user_id):
+        logger.warning(f"Unauthorized user {user_id} attempted to start the bot")
+        denial_message = "🚫 You are not authorized to use this bot."
+        if BOT_OWNER_USERNAME:
+            denial_message += f"\n\nContact @{BOT_OWNER_USERNAME} for access."
+        await update.message.reply_text(denial_message)
+        return
+
     logger.info(f"User {user_id} started the bot")
 
     await update.message.reply_text(
@@ -76,6 +90,16 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
     user_id = update.effective_user.id
     data = query.data
+
+    # همان دسترسی بسته‌ای که در start_command چک می‌شود، باید برای هر
+    # کلیک روی دکمه هم چک شود -- وگرنه کسی که قبلاً منو را دیده (مثلاً
+    # پیام قدیمی در چتش باقی مانده) می‌تواند بعد از حذف‌شدن از مدیرها هم
+    # دکمه‌ها را بزند.
+    if not is_authorized_user(user_id):
+        logger.warning(f"Unauthorized user {user_id} attempted to click a button: {data}")
+        await query.edit_message_text("🚫 You are not authorized to use this bot.")
+        return
+
     logger.info(f"User {user_id} clicked button with data: {data}")
 
     parts = data.split(":")

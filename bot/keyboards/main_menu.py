@@ -42,6 +42,10 @@ def build_bot_settings_menu(current_interval_minutes: int) -> InlineKeyboardMark
             "🕐 Change news check interval",
             callback_data="settings:interval:menu",
         )],
+        [InlineKeyboardButton(
+            "👤 Add new manager",
+            callback_data="menu:add_manager",
+        )],
         [InlineKeyboardButton("⬅️ Back to channel list", callback_data="menu:channels")],
     ]
     return InlineKeyboardMarkup(keyboard)

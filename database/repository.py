@@ -112,6 +112,27 @@ def add_channel_manager(telegram_user_id: int, display_name: str) -> ChannelMana
         return new_manager
 
 
+def is_authorized_user(telegram_user_id: int) -> bool:
+    """Check whether this Telegram user is allowed to use the bot at all.
+
+    A user is authorized once a ChannelManager row exists for them --
+    regardless of whether they're linked to any Destination yet. This is
+    intentionally separate from "manages at least one channel": the owner
+    pre-authorizes a person (via the Add Manager flow) before that person
+    has added or been linked to any channel. Without this row, start_command
+    refuses to show the admin menu, which is what makes channel-adding a
+    closed, invite-only action instead of open to anyone who finds the bot.
+    """
+
+    with get_session() as session:
+        existing = (
+            session.query(ChannelManager)
+            .filter(ChannelManager.telegram_user_id == telegram_user_id)
+            .first()
+        )
+        return existing is not None
+
+
 def grant_manager_access(telegram_user_id: int, destination_id: int) -> None:
 
     with get_session() as session:
