@@ -90,7 +90,11 @@ folder as the project matures.
 - [x] Project setup (folder structure, dependencies, environment config)
 - [x] GitHub repository setup
 - [x] Core development (in progress)
-  - [x] vr1 done
+  - [x] Architecture update: multi-tenant support
+  - [x] Admin menu (inline keyboards)
+  - [x] Alert system (pre-release notifications)
+  - [x] Multi-destination publishing
+  - [x] Round 2 — Feature 7: bot owner display in /start
 - [ ] Testing
 - [ ] Deployment (local, GitHub Actions, Oracle Cloud Free Tier, VPS)
 - [ ] Maintenance documentation
