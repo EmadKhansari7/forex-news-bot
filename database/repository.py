@@ -61,9 +61,7 @@ def update_check_interval(minutes: int) -> GlobalSettings:
     """Update the global news-check interval (in minutes).
 
     This is a single, shared setting: it affects every destination across
-    every manager, since the scheduler only runs one news-check job. Any
-    manager with at least one destination is allowed to change it (this
-    is intentional per project decision, not an oversight).
+    every manager, since the scheduler only runs one news-check job.
 
     The caller is responsible for also calling
     scheduler.scheduler.reschedule_news_check(minutes) so the running job
@@ -116,12 +114,7 @@ def is_authorized_user(telegram_user_id: int) -> bool:
     """Check whether this Telegram user is allowed to use the bot at all.
 
     A user is authorized once a ChannelManager row exists for them --
-    regardless of whether they're linked to any Destination yet. This is
-    intentionally separate from "manages at least one channel": the owner
-    pre-authorizes a person (via the Add Manager flow) before that person
-    has added or been linked to any channel. Without this row, start_command
-    refuses to show the admin menu, which is what makes channel-adding a
-    closed, invite-only action instead of open to anyone who finds the bot.
+    regardless of whether they're linked to any Destination yet.
     """
 
     with get_session() as session:
@@ -131,6 +124,59 @@ def is_authorized_user(telegram_user_id: int) -> bool:
             .first()
         )
         return existing is not None
+
+
+def get_all_managers() -> list[ChannelManager]:
+    """Return every authorized manager (including the owner), for use in
+    the owner-facing 'Remove manager' selection list."""
+
+    with get_session() as session:
+        return session.query(ChannelManager).all()
+
+
+def remove_manager(telegram_user_id: int) -> list[Destination]:
+    """Revoke a manager's access to the bot entirely.
+
+    This deletes their ChannelManager row (so is_authorized_user() becomes
+    False for them) and all their manager-destination links. Any
+    destination that, after removing this manager's link, has no manager
+    left at all is automatically deactivated (is_active=False) -- it isn't
+    deleted, just paused, since deactivation is reversible. A destination
+    that still has at least one other manager (e.g. the owner, or someone
+    else) is left untouched and keeps sending news normally.
+
+    Returns the list of destinations that were deactivated as a side
+    effect, so the caller can show the owner what changed.
+    """
+
+    with get_session() as session:
+        manager = (
+            session.query(ChannelManager)
+            .filter(ChannelManager.telegram_user_id == telegram_user_id)
+            .first()
+        )
+
+        if manager is None:
+            return []
+
+        affected_destinations = list(manager.destinations)
+        deactivated_destinations = []
+
+        for destination in affected_destinations:
+            remaining_managers = [
+                m for m in destination.managers if m.id != manager.id
+            ]
+            if not remaining_managers:
+                destination.is_active = False
+                deactivated_destinations.append(destination)
+
+        session.delete(manager)
+        session.commit()
+
+        for destination in deactivated_destinations:
+            session.refresh(destination)
+
+        return deactivated_destinations
 
 
 def grant_manager_access(telegram_user_id: int, destination_id: int) -> None:
@@ -278,12 +324,7 @@ def toggle_destination_alert(destination_id: int, alert_type: str) -> Destinatio
 
 
 def set_destination_active_state(destination_id: int, is_active: bool) -> Destination | None:
-    """Soft-toggle a destination's active state (deactivate/reactivate).
-
-    A deactivated destination is skipped by get_active_destinations(), so
-    the bot simply stops sending news to it. This is reversible and does
-    not touch any related rows (filters, settings, sent-news history).
-    """
+    """Soft-toggle a destination's active state (deactivate/reactivate)."""
 
     with get_session() as session:
         destination = session.get(Destination, destination_id)
@@ -305,15 +346,7 @@ def reactivate_destination(destination_id: int) -> Destination | None:
 
 
 def delete_destination_permanently(destination_id: int) -> bool:
-    """Permanently remove a destination and all related rows from the database.
-
-    Filters and destination settings cascade-delete automatically (the
-    Destination model defines cascade="all, delete-orphan" for both
-    relationships). Manager-link rows and sent-news history aren't covered
-    by that cascade, so they're deleted explicitly here. This is
-    irreversible. Returns True if a destination was found and deleted,
-    False if no such destination existed.
-    """
+    """Permanently remove a destination and all related rows from the database."""
 
     with get_session() as session:
         destination = session.get(Destination, destination_id)

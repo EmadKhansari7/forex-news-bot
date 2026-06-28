@@ -9,6 +9,8 @@ from bot.keyboards.main_menu import (
     build_destination_detail_menu,
     build_interval_selection_menu,
     build_main_menu,
+    build_manager_remove_confirmation_menu,
+    build_manager_selection_menu,
 )
 from config.logger import get_logger
 from config.settings import BOT_OWNER_USERNAME, TELEGRAM_ADMIN_IDS
@@ -17,11 +19,13 @@ from database.repository import (
     deactivate_destination,
     delete_destination_permanently,
     get_all_filters_for_destination,
+    get_all_managers,
     get_destination_by_id,
     get_destinations_for_manager,
     get_global_settings,
     is_authorized_user,
     reactivate_destination,
+    remove_manager,
     toggle_currency_filter,
     update_check_interval,
 )
@@ -38,10 +42,10 @@ def _is_authorized_for_destination(telegram_user_id: int, destination_id: int) -
 
 
 def _is_owner(telegram_user_id: int) -> bool:
-    """Bot Settings (e.g. the news-check interval) affects every channel
-    across every manager, since it's a single global setting backed by one
-    scheduler job. Restricting it to the owner (TELEGRAM_ADMIN_IDS) avoids
-    one manager's change silently affecting everyone else's channels."""
+    """Bot Settings (e.g. the news-check interval, manager management)
+    affects every channel across every manager, since it touches global
+    state. Restricting it to the owner (TELEGRAM_ADMIN_IDS) avoids one
+    manager's change silently affecting everyone else."""
 
     return telegram_user_id in TELEGRAM_ADMIN_IDS
 
@@ -63,10 +67,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     user_id = update.effective_user.id
 
-    # دسترسی به ربات بسته است: فقط کسانی که owner از قبل با "Add new
-    # manager" تأییدشان کرده (یا owner خودش، که در main.py خودکار seed
-    # می‌شود) اجازه‌ی دیدن منو را دارند. این جلوی این را می‌گیرد که هر کسی
-    # که لینک ربات را پیدا کند بتواند خودش کانال اضافه کند.
     if not is_authorized_user(user_id):
         logger.warning(f"Unauthorized user {user_id} attempted to start the bot")
         denial_message = "🚫 You are not authorized to use this bot."
@@ -91,10 +91,6 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     user_id = update.effective_user.id
     data = query.data
 
-    # همان دسترسی بسته‌ای که در start_command چک می‌شود، باید برای هر
-    # کلیک روی دکمه هم چک شود -- وگرنه کسی که قبلاً منو را دیده (مثلاً
-    # پیام قدیمی در چتش باقی مانده) می‌تواند بعد از حذف‌شدن از مدیرها هم
-    # دکمه‌ها را بزند.
     if not is_authorized_user(user_id):
         logger.warning(f"Unauthorized user {user_id} attempted to click a button: {data}")
         await query.edit_message_text("🚫 You are not authorized to use this bot.")
@@ -122,6 +118,12 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
 
     elif data == "menu:bot_settings":
         await _show_bot_settings(query, user_id)
+
+    elif data == "menu:remove_manager":
+        await _show_manager_selection(query, user_id)
+
+    elif parts[0] == "manager":
+        await _handle_manager_action(query, user_id, parts)
 
     elif parts[0] == "settings":
         await _handle_settings_action(query, user_id, parts)
@@ -166,6 +168,76 @@ async def _show_bot_settings(query, user_id: int) -> None:
         f"by all managers.",
         reply_markup=build_bot_settings_menu(settings.check_interval_minutes),
     )
+
+
+async def _show_manager_selection(query, user_id: int) -> None:
+
+    if not _is_owner(user_id):
+        logger.warning(f"User {user_id} attempted to access manager removal (owner-only)")
+        await query.edit_message_text("Only the bot owner can remove managers.")
+        return
+
+    all_managers = get_all_managers()
+    removable_count = len(
+        [m for m in all_managers if m.telegram_user_id not in TELEGRAM_ADMIN_IDS]
+    )
+
+    if removable_count == 0:
+        await query.edit_message_text(
+            "There are no managers to remove (only the owner exists so far).",
+            reply_markup=build_bot_settings_menu(get_global_settings().check_interval_minutes),
+        )
+        return
+
+    await query.edit_message_text(
+        "Select a manager to remove:\n\n"
+        "⚠️ Removing a manager revokes their access to the bot. Any "
+        "channel that only they managed will be deactivated (paused, "
+        "not deleted) -- channels shared with you or another manager "
+        "are left untouched.",
+        reply_markup=build_manager_selection_menu(all_managers, TELEGRAM_ADMIN_IDS),
+    )
+
+
+async def _handle_manager_action(query, user_id: int, parts: list[str]) -> None:
+
+    if not _is_owner(user_id):
+        logger.warning(f"User {user_id} attempted manager management (owner-only)")
+        await query.edit_message_text("Only the bot owner can manage other managers.")
+        return
+
+    target_telegram_id = int(parts[1])
+    action = parts[2]
+
+    if target_telegram_id in TELEGRAM_ADMIN_IDS:
+        logger.warning(f"User {user_id} attempted to remove the owner ({target_telegram_id})")
+        await query.edit_message_text("The bot owner cannot be removed.")
+        return
+
+    if action == "confirm_remove":
+        await query.edit_message_text(
+            f"⚠️ Remove manager {target_telegram_id}?\n\n"
+            f"This revokes their access to the bot immediately. Any "
+            f"channel only they managed will be deactivated.",
+            reply_markup=build_manager_remove_confirmation_menu(target_telegram_id),
+        )
+
+    elif action == "remove":
+        logger.warning(f"Owner {user_id} removed manager {target_telegram_id}")
+        deactivated = remove_manager(target_telegram_id)
+
+        result_message = f"✅ Manager {target_telegram_id} has been removed."
+        if deactivated:
+            names = ", ".join(d.name for d in deactivated)
+            result_message += f"\n\n🔴 Deactivated (no manager left): {names}"
+
+        await query.edit_message_text(
+            result_message,
+            reply_markup=build_bot_settings_menu(get_global_settings().check_interval_minutes),
+        )
+
+    else:
+        logger.warning(f"Unknown manager action: {action}")
 
 
 async def _handle_settings_action(query, user_id: int, parts: list[str]) -> None:

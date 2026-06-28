@@ -1,6 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from database.models import Destination
+from database.models import ChannelManager, Destination
 
 
 def build_main_menu() -> InlineKeyboardMarkup:
@@ -46,6 +46,10 @@ def build_bot_settings_menu(current_interval_minutes: int) -> InlineKeyboardMark
             "👤 Add new manager",
             callback_data="menu:add_manager",
         )],
+        [InlineKeyboardButton(
+            "🗑 Remove a manager",
+            callback_data="menu:remove_manager",
+        )],
         [InlineKeyboardButton("⬅️ Back to channel list", callback_data="menu:channels")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -67,6 +71,46 @@ def build_interval_selection_menu(current_interval_minutes: int) -> InlineKeyboa
         [InlineKeyboardButton("⬅️ Back", callback_data="menu:bot_settings")]
     )
 
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_manager_selection_menu(
+    managers: list[ChannelManager], owner_telegram_ids: list[int]
+) -> InlineKeyboardMarkup:
+    """List every authorized manager as a button, except the owner(s) --
+    the owner can't remove themselves, so they're excluded from this list
+    entirely rather than shown as a disabled/unclickable option."""
+
+    keyboard = []
+
+    removable_managers = [
+        m for m in managers if m.telegram_user_id not in owner_telegram_ids
+    ]
+
+    for manager in removable_managers:
+        button_text = f"{manager.display_name} ({manager.telegram_user_id})"
+        callback_data = f"manager:{manager.telegram_user_id}:confirm_remove"
+        keyboard.append([InlineKeyboardButton(button_text, callback_data=callback_data)])
+
+    keyboard.append(
+        [InlineKeyboardButton("⬅️ Back", callback_data="menu:bot_settings")]
+    )
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def build_manager_remove_confirmation_menu(telegram_user_id: int) -> InlineKeyboardMarkup:
+
+    keyboard = [
+        [InlineKeyboardButton(
+            "⚠️ Yes, remove this manager",
+            callback_data=f"manager:{telegram_user_id}:remove",
+        )],
+        [InlineKeyboardButton(
+            "Cancel",
+            callback_data="menu:remove_manager",
+        )],
+    ]
     return InlineKeyboardMarkup(keyboard)
 
 
