@@ -4,15 +4,19 @@ from telegram.ext import ContextTypes
 from bot.keyboards.filter_menu import build_currency_filter_menu
 from bot.keyboards.main_menu import (
     build_channels_list_menu,
+    build_delete_confirmation_menu,
     build_destination_detail_menu,
     build_main_menu,
 )
 from config.logger import get_logger
 from config.settings import BOT_OWNER_USERNAME
 from database.repository import (
+    deactivate_destination,
+    delete_destination_permanently,
     get_all_filters_for_destination,
     get_destination_by_id,
     get_destinations_for_manager,
+    reactivate_destination,
     toggle_currency_filter,
 )
 
@@ -102,6 +106,24 @@ async def _show_channels_list(query, user_id: int) -> None:
     )
 
 
+async def _show_destination_detail(query, destination) -> None:
+
+    status_line = (
+        "🟢 Active — currently sending news"
+        if destination.is_active
+        else "🔴 Deactivated — news sending is paused"
+    )
+
+    await query.edit_message_text(
+        f"Managing: {destination.name}\n"
+        f"Chat ID: {destination.chat_id}\n"
+        f"Status: {status_line}",
+        reply_markup=build_destination_detail_menu(
+            destination.id, is_active=destination.is_active
+        ),
+    )
+
+
 async def _handle_destination_action(query, user_id: int, parts: list[str]) -> None:
 
     destination_id = int(parts[1])
@@ -121,10 +143,7 @@ async def _handle_destination_action(query, user_id: int, parts: list[str]) -> N
         return
 
     if action == "open":
-        await query.edit_message_text(
-            f"Managing: {destination.name}\nChat ID: {destination.chat_id}",
-            reply_markup=build_destination_detail_menu(destination_id),
-        )
+        await _show_destination_detail(query, destination)
 
     elif action == "filters":
         filters = get_all_filters_for_destination(destination_id)
@@ -144,6 +163,36 @@ async def _handle_destination_action(query, user_id: int, parts: list[str]) -> N
             f"Currency filters for {destination.name}:\n"
             f"(tap a currency to toggle it on/off)",
             reply_markup=build_currency_filter_menu(destination_id, updated_filters),
+        )
+
+    elif action == "deactivate":
+        logger.info(f"User {user_id} deactivated destination {destination_id}")
+        updated_destination = deactivate_destination(destination_id)
+        await _show_destination_detail(query, updated_destination)
+
+    elif action == "reactivate":
+        logger.info(f"User {user_id} reactivated destination {destination_id}")
+        updated_destination = reactivate_destination(destination_id)
+        await _show_destination_detail(query, updated_destination)
+
+    elif action == "confirm_delete":
+        await query.edit_message_text(
+            f"⚠️ Permanently delete '{destination.name}'?\n\n"
+            f"This cannot be undone. All currency filters, alert settings, "
+            f"and sent-news history for this channel will be erased, and "
+            f"every manager (not just you) will lose access to it.",
+            reply_markup=build_delete_confirmation_menu(destination_id),
+        )
+
+    elif action == "delete_permanent":
+        logger.warning(
+            f"User {user_id} permanently deleted destination {destination_id} "
+            f"({destination.name})"
+        )
+        delete_destination_permanently(destination_id)
+        await query.edit_message_text(
+            f"'{destination.name}' has been permanently deleted.",
+            reply_markup=build_main_menu(),
         )
 
     else:
