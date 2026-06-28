@@ -11,7 +11,7 @@ from bot.keyboards.main_menu import (
     build_main_menu,
 )
 from config.logger import get_logger
-from config.settings import BOT_OWNER_USERNAME
+from config.settings import BOT_OWNER_USERNAME, TELEGRAM_ADMIN_IDS
 from database.repository import (
     SUPPORTED_CHECK_INTERVALS_MINUTES,
     deactivate_destination,
@@ -36,12 +36,13 @@ def _is_authorized_for_destination(telegram_user_id: int, destination_id: int) -
     return destination_id in allowed_ids
 
 
-def _is_a_manager(telegram_user_id: int) -> bool:
-    """Anyone who manages at least one destination is allowed to touch
-    global bot settings (e.g. the news-check interval), per project
-    decision -- this is intentionally not restricted to the owner."""
+def _is_owner(telegram_user_id: int) -> bool:
+    """Bot Settings (e.g. the news-check interval) affects every channel
+    across every manager, since it's a single global setting backed by one
+    scheduler job. Restricting it to the owner (TELEGRAM_ADMIN_IDS) avoids
+    one manager's change silently affecting everyone else's channels."""
 
-    return len(get_destinations_for_manager(telegram_user_id)) > 0
+    return telegram_user_id in TELEGRAM_ADMIN_IDS
 
 
 def _build_welcome_message() -> str:
@@ -128,9 +129,9 @@ async def _show_channels_list(query, user_id: int) -> None:
 
 async def _show_bot_settings(query, user_id: int) -> None:
 
-    if not _is_a_manager(user_id):
-        logger.warning(f"User {user_id} attempted to access bot settings without managing any channel")
-        await query.edit_message_text("You don't have access to bot settings.")
+    if not _is_owner(user_id):
+        logger.warning(f"User {user_id} attempted to access bot settings (owner-only)")
+        await query.edit_message_text("Only the bot owner can access Bot Settings.")
         return
 
     settings = get_global_settings()
@@ -145,9 +146,9 @@ async def _show_bot_settings(query, user_id: int) -> None:
 
 async def _handle_settings_action(query, user_id: int, parts: list[str]) -> None:
 
-    if not _is_a_manager(user_id):
-        logger.warning(f"User {user_id} attempted to change bot settings without managing any channel")
-        await query.edit_message_text("You don't have access to bot settings.")
+    if not _is_owner(user_id):
+        logger.warning(f"User {user_id} attempted to change bot settings (owner-only)")
+        await query.edit_message_text("Only the bot owner can access Bot Settings.")
         return
 
     action = parts[1]
