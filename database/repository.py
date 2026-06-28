@@ -191,6 +191,16 @@ def get_destination_by_id(destination_id: int) -> Destination | None:
         return session.get(Destination, destination_id)
 
 
+def get_destination_settings(destination_id: int) -> DestinationSettings | None:
+
+    with get_session() as session:
+        return (
+            session.query(DestinationSettings)
+            .filter(DestinationSettings.destination_id == destination_id)
+            .first()
+        )
+
+
 def toggle_destination_alert(destination_id: int, alert_type: str) -> DestinationSettings | None:
 
     field_map = {

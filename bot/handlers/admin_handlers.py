@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.keyboards.filter_menu import build_currency_filter_menu
+from bot.keyboards.filter_menu import build_alert_settings_menu, build_currency_filter_menu
 from bot.keyboards.main_menu import (
     build_channels_list_menu,
     build_delete_confirmation_menu,
@@ -15,9 +15,11 @@ from database.repository import (
     delete_destination_permanently,
     get_all_filters_for_destination,
     get_destination_by_id,
+    get_destination_settings,
     get_destinations_for_manager,
     reactivate_destination,
     toggle_currency_filter,
+    toggle_destination_alert,
 )
 
 logger = get_logger(__name__)
@@ -124,6 +126,30 @@ async def _show_destination_detail(query, destination) -> None:
     )
 
 
+async def _show_alert_settings(query, destination) -> None:
+
+    settings = get_destination_settings(destination.id)
+
+    if settings is None:
+        logger.warning(
+            f"No DestinationSettings row found for destination {destination.id}"
+        )
+        await query.edit_message_text(
+            f"Alert settings for {destination.name} could not be loaded "
+            f"(no settings record exists for this channel).",
+            reply_markup=build_destination_detail_menu(
+                destination.id, is_active=destination.is_active
+            ),
+        )
+        return
+
+    await query.edit_message_text(
+        f"Alert settings for {destination.name}:\n"
+        f"(tap an alert to toggle it on/off)",
+        reply_markup=build_alert_settings_menu(destination.id, settings),
+    )
+
+
 async def _handle_destination_action(query, user_id: int, parts: list[str]) -> None:
 
     destination_id = int(parts[1])
@@ -163,6 +189,32 @@ async def _handle_destination_action(query, user_id: int, parts: list[str]) -> N
             f"Currency filters for {destination.name}:\n"
             f"(tap a currency to toggle it on/off)",
             reply_markup=build_currency_filter_menu(destination_id, updated_filters),
+        )
+
+    elif action == "alerts":
+        await _show_alert_settings(query, destination)
+
+    elif action == "toggle_alert":
+        alert_type = parts[3]
+        updated_settings = toggle_destination_alert(destination_id, alert_type)
+
+        if updated_settings is None:
+            logger.warning(
+                f"Failed to toggle alert '{alert_type}' for destination "
+                f"{destination_id} (unknown alert type or missing settings row)"
+            )
+            await query.edit_message_text(
+                f"Could not update that alert setting. Please try again.",
+                reply_markup=build_destination_detail_menu(
+                    destination.id, is_active=destination.is_active
+                ),
+            )
+            return
+
+        await query.edit_message_text(
+            f"Alert settings for {destination.name}:\n"
+            f"(tap an alert to toggle it on/off)",
+            reply_markup=build_alert_settings_menu(destination_id, updated_settings),
         )
 
     elif action == "deactivate":
