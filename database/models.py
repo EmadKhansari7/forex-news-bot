@@ -1,5 +1,3 @@
-
-
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
@@ -11,6 +9,7 @@ class Base(DeclarativeBase):
 
 
 class ChannelManager(Base):
+
     __tablename__ = "channel_managers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -30,6 +29,7 @@ class ChannelManager(Base):
 
 
 class Destination(Base):
+
     __tablename__ = "destinations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -58,6 +58,7 @@ class Destination(Base):
 
 
 class ManagerDestinationLink(Base):
+
     __tablename__ = "manager_destination_links"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -66,6 +67,7 @@ class ManagerDestinationLink(Base):
 
 
 class FilterSettings(Base):
+
     __tablename__ = "filter_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -81,6 +83,7 @@ class FilterSettings(Base):
 
 
 class DestinationSettings(Base):
+
     __tablename__ = "destination_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -92,6 +95,9 @@ class DestinationSettings(Base):
     alert_5min_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     alert_at_release_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # فاصله‌ی حداقل بین ارسال‌ها به این مقصد (۰ = بدون محدودیت)
+    posting_interval_minutes: Mapped[int] = mapped_column(Integer, default=0)
+
     destination: Mapped["Destination"] = relationship(back_populates="settings")
 
     def __repr__(self) -> str:
@@ -99,6 +105,7 @@ class DestinationSettings(Base):
 
 
 class GlobalSettings(Base):
+
     __tablename__ = "global_settings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -109,6 +116,7 @@ class GlobalSettings(Base):
 
 
 class SentNews(Base):
+
     __tablename__ = "sent_news"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -132,6 +132,7 @@ def build_destination_detail_menu(
     keyboard = [
         [InlineKeyboardButton("🎛 Currency Filters", callback_data=f"dest:{destination_id}:filters")],
         [InlineKeyboardButton("🔔 Alert Settings", callback_data=f"dest:{destination_id}:alerts")],
+        [InlineKeyboardButton("📬 Posting Interval", callback_data=f"dest:{destination_id}:posting_interval")],
         [lifecycle_button],
         [InlineKeyboardButton(
             "🗑 Remove this channel",
@@ -154,4 +155,30 @@ def build_delete_confirmation_menu(destination_id: int) -> InlineKeyboardMarkup:
             callback_data=f"dest:{destination_id}:open",
         )],
     ]
+    return InlineKeyboardMarkup(keyboard)
+
+def build_posting_interval_menu(destination_id: int, current_minutes: int) -> InlineKeyboardMarkup:
+
+    options = [
+        (0, "Off (no limit)"),
+        (5, "5 min"),
+        (15, "15 min"),
+        (30, "30 min"),
+        (60, "60 min"),
+    ]
+
+    keyboard = []
+    for minutes, label in options:
+        icon = "✅" if minutes == current_minutes else "◻️"
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{icon} {label}",
+                callback_data=f"dest:{destination_id}:set_interval:{minutes}",
+            )
+        ])
+
+    keyboard.append([
+        InlineKeyboardButton("⬅️ Back", callback_data=f"dest:{destination_id}:open")
+    ])
+
     return InlineKeyboardMarkup(keyboard)

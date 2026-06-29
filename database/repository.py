@@ -367,3 +367,38 @@ def delete_destination_permanently(destination_id: int) -> bool:
         session.delete(destination)
         session.commit()
         return True
+
+def get_destination_settings(destination_id: int) -> DestinationSettings | None:
+    with get_session() as session:
+        return (
+            session.query(DestinationSettings)
+            .filter(DestinationSettings.destination_id == destination_id)
+            .first()
+        )
+
+
+def set_posting_interval(destination_id: int, minutes: int) -> DestinationSettings | None:
+    with get_session() as session:
+        settings_row = (
+            session.query(DestinationSettings)
+            .filter(DestinationSettings.destination_id == destination_id)
+            .first()
+        )
+
+        if settings_row is not None:
+            settings_row.posting_interval_minutes = minutes
+            session.commit()
+            session.refresh(settings_row)
+
+        return settings_row
+
+
+def get_last_sent_time(destination_id: int):
+
+    from sqlalchemy import func
+    with get_session() as session:
+        return (
+            session.query(func.max(SentNews.sent_at))
+            .filter(SentNews.destination_id == destination_id)
+            .scalar()
+        )

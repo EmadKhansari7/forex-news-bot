@@ -11,6 +11,7 @@ from bot.keyboards.main_menu import (
     build_main_menu,
     build_manager_remove_confirmation_menu,
     build_manager_selection_menu,
+    build_posting_interval_menu,
 )
 from config.logger import get_logger
 from config.settings import BOT_OWNER_USERNAME, TELEGRAM_ADMIN_IDS
@@ -21,11 +22,13 @@ from database.repository import (
     get_all_filters_for_destination,
     get_all_managers,
     get_destination_by_id,
+    get_destination_settings,
     get_destinations_for_manager,
     get_global_settings,
     is_authorized_user,
     reactivate_destination,
     remove_manager,
+    set_posting_interval,
     toggle_currency_filter,
     update_check_interval,
 )
@@ -371,6 +374,37 @@ async def _handle_destination_action(query, user_id: int, parts: list[str]) -> N
         await query.edit_message_text(
             f"'{destination.name}' has been permanently deleted.",
             reply_markup=build_main_menu(),
+        )
+
+    elif action == "posting_interval":
+        settings = get_destination_settings(destination_id)
+        current_minutes = settings.posting_interval_minutes if settings else 0
+
+        await query.edit_message_text(
+            f"📬 Posting interval for {destination.name}:\n\n"
+            f"If set, the bot will wait at least X minutes after the last "
+            f"sent news before sending to this channel again.\n\n"
+            f"This affects ALL currencies together (not per-currency).\n"
+            f"Current setting: {'Off' if current_minutes == 0 else f'{current_minutes} min'}",
+            reply_markup=build_posting_interval_menu(destination_id, current_minutes),
+        )
+
+    elif action == "set_interval":
+        minutes = int(parts[3])
+        set_posting_interval(destination_id, minutes)
+
+        label = "Off (no limit)" if minutes == 0 else f"{minutes} minutes"
+        logger.info(
+            f"User {user_id} set posting interval for destination {destination_id} to {minutes} min"
+        )
+
+        await query.edit_message_text(
+            f"📬 Posting interval for {destination.name}:\n\n"
+            f"If set, the bot will wait at least X minutes after the last "
+            f"sent news before sending to this channel again.\n\n"
+            f"This affects ALL currencies together (not per-currency).\n"
+            f"Current setting: {label}",
+            reply_markup=build_posting_interval_menu(destination_id, minutes),
         )
 
     else:
