@@ -9,7 +9,10 @@ from database.repository import (
     is_news_already_sent,
     mark_news_as_sent,
 )
-from services.filter_service import filter_news_list_for_destination
+from services.filter_service import (
+    MatchedNewsItem,
+    get_matched_news_for_destination,
+)
 from services.news_provider.forex_factory_provider import NewsFeedError, fetch_news
 from services.news_provider.news_item import NewsItem
 from services.telegram_service import send_message
@@ -17,6 +20,11 @@ from services.telegram_service import send_message
 logger = get_logger(__name__)
 
 DELAY_BETWEEN_MESSAGES_SECONDS = 1.5
+
+_CURRENCY_LABELS = {
+    "OIL": "🛢️ OIL",
+    "GOLD": "🥇 GOLD",
+}
 
 
 async def run_news_check() -> None:
@@ -45,11 +53,7 @@ async def run_news_check() -> None:
 
 
 def _is_throttled(destination_id: int, destination_name: str) -> bool:
-    """چک می‌کند آیا این مقصد هنوز در فاصله‌ی انتظار است یا نه.
 
-    اگر posting_interval_minutes روی ۰ باشد (پیش‌فرض)، throttle فعال نیست.
-    در غیر این صورت، بررسی می‌کند آیا از آخرین ارسال به اندازه‌ی کافی گذشته.
-    """
     settings = get_destination_settings(destination_id)
 
     if settings is None or settings.posting_interval_minutes == 0:
@@ -79,31 +83,38 @@ def _is_throttled(destination_id: int, destination_name: str) -> bool:
     return False
 
 
+def _make_unique_id_for_match(matched: MatchedNewsItem) -> str:
+
+    if matched.matched_currency == matched.news_item.currency:
+        return matched.news_item.unique_id
+    return f"{matched.news_item.unique_id}_{matched.matched_currency}"
+
+
 async def _process_destination(destination, all_news: list[NewsItem]) -> None:
 
-    # اول throttle چک می‌شه — اگر throttle باشه، کل این مقصد skip می‌شه
     if _is_throttled(destination.id, destination.name):
         return
 
-    filtered_news = filter_news_list_for_destination(all_news, destination.id)
+    matched_items = get_matched_news_for_destination(all_news, destination.id)
 
-    if not filtered_news:
+    if not matched_items:
         logger.info(f"No news passed filters for destination '{destination.name}'")
         return
 
-    new_news = [
-        item for item in filtered_news
-        if not is_news_already_sent(item.unique_id, destination.id)
+    new_matches = [
+        matched for matched in matched_items
+        if not is_news_already_sent(_make_unique_id_for_match(matched), destination.id)
     ]
 
-    if not new_news:
+    if not new_matches:
         logger.info(f"All filtered news already sent to '{destination.name}'")
         return
 
-    logger.info(f"Sending {len(new_news)} new news item(s) to '{destination.name}'")
+    logger.info(f"Sending {len(new_matches)} new news item(s) to '{destination.name}'")
 
-    for news_item in new_news:
-        message_text = _format_news_message(news_item)
+    for matched in new_matches:
+        message_text = _format_news_message(matched)
+        unique_id = _make_unique_id_for_match(matched)
 
         success = await send_message(
             chat_id=destination.chat_id,
@@ -111,18 +122,23 @@ async def _process_destination(destination, all_news: list[NewsItem]) -> None:
         )
 
         if success:
-            mark_news_as_sent(news_item, destination.id)
+            mark_news_as_sent(matched.news_item, destination.id, unique_id_override=unique_id)
 
         await asyncio.sleep(DELAY_BETWEEN_MESSAGES_SECONDS)
 
 
-def _format_news_message(news_item: NewsItem) -> str:
+def _format_news_message(matched: MatchedNewsItem) -> str:
+    news_item = matched.news_item
+
     forecast_line = f"\nForecast: {news_item.forecast}" if news_item.forecast else ""
     previous_line = f"\nPrevious: {news_item.previous}" if news_item.previous else ""
 
+
+    display_label = _CURRENCY_LABELS.get(matched.matched_currency, news_item.currency)
+
     return (
         f"📰 {news_item.title}\n"
-        f"💱 Currency: {news_item.currency}\n"
+        f"💱 Currency: {display_label}\n"
         f"⚡ Impact: {news_item.impact}\n"
         f"🕐 Time: {news_item.event_time.strftime('%Y-%m-%d %H:%M %Z')}"
         f"{forecast_line}{previous_line}"

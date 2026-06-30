@@ -57,7 +57,7 @@ def build_bot_settings_menu(current_interval_minutes: int) -> InlineKeyboardMark
 
 def build_interval_selection_menu(current_interval_minutes: int) -> InlineKeyboardMarkup:
 
-    interval_options = [5, 10, 15, 30, 60, 120]
+    interval_options = [5, 10, 15, 30, 60, 120, 240]
 
     keyboard = []
     for minutes in interval_options:
@@ -165,6 +165,8 @@ def build_posting_interval_menu(destination_id: int, current_minutes: int) -> In
         (15, "15 min"),
         (30, "30 min"),
         (60, "60 min"),
+        (120, "120 min"),
+        (240, "240 min"),
     ]
 
     keyboard = []

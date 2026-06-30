@@ -10,10 +10,10 @@ from database.models import (
 )
 from services.news_provider.news_item import NewsItem
 
-SUPPORTED_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "NZD", "CHF"]
+SUPPORTED_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "NZD", "CHF", "OIL", "GOLD"]
 
 # گزینه‌های فاصله‌ی زمانی که در منوی Bot Settings نشان داده می‌شوند
-SUPPORTED_CHECK_INTERVALS_MINUTES = [5, 10, 15, 30, 60, 120]
+SUPPORTED_CHECK_INTERVALS_MINUTES = [5, 10, 15, 30, 60, 120, 240]
 
 
 
@@ -31,13 +31,25 @@ def is_news_already_sent(unique_id: str, destination_id: int) -> bool:
         return existing_record is not None
 
 
-def mark_news_as_sent(news_item: NewsItem, destination_id: int) -> None:
+def mark_news_as_sent(
+    news_item: NewsItem,
+    destination_id: int,
+    unique_id_override: str | None = None,
+    currency_override: str | None = None,
+) -> None:
+    """ثبت یک خبر به‌عنوان ارسال‌شده برای یک مقصد.
+
+    unique_id_override برای زمانی است که یک خبر بیش از یک‌بار برای همان
+    مقصد ارسال می‌شود (مثلاً هم زیر فیلتر USD و هم زیر OIL) — هرکدام باید
+    کلید ضد-تکرار جدای خودشان را داشته باشند تا دومی به اشتباه «قبلاً
+    ارسال شده» تشخیص داده نشود.
+    """
     with get_session() as session:
         new_record = SentNews(
             destination_id=destination_id,
-            unique_id=news_item.unique_id,
+            unique_id=unique_id_override or news_item.unique_id,
             title=news_item.title,
-            currency=news_item.currency,
+            currency=currency_override or news_item.currency,
         )
         session.add(new_record)
         session.commit()
