@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from bot.keyboards.alert_menu import build_alert_settings_menu
 from bot.keyboards.filter_menu import build_currency_filter_menu
 from bot.keyboards.main_menu import (
     build_bot_settings_menu,
@@ -30,6 +31,7 @@ from database.repository import (
     remove_manager,
     set_posting_interval,
     toggle_currency_filter,
+    toggle_destination_alert,
     update_check_interval,
 )
 from scheduler.scheduler import reschedule_news_check
@@ -344,6 +346,33 @@ async def _handle_destination_action(query, user_id: int, parts: list[str]) -> N
             f"Currency filters for {destination.name}:\n"
             f"(tap a currency to toggle it on/off)",
             reply_markup=build_currency_filter_menu(destination_id, updated_filters),
+        )
+
+    elif action == "alerts":
+        settings = get_destination_settings(destination_id)
+        if settings is None:
+            await query.edit_message_text("Alert settings not found for this channel.")
+            return
+
+        await query.edit_message_text(
+            f"🔔 Alert settings for {destination.name}:\n"
+            f"(tap to toggle a pre-release alert on/off)",
+            reply_markup=build_alert_settings_menu(destination_id, settings),
+        )
+
+    elif action == "toggle_alert":
+        alert_type = parts[3]
+        toggle_destination_alert(destination_id, alert_type)
+
+        updated_settings = get_destination_settings(destination_id)
+        if updated_settings is None:
+            await query.edit_message_text("Alert settings not found for this channel.")
+            return
+
+        await query.edit_message_text(
+            f"🔔 Alert settings for {destination.name}:\n"
+            f"(tap to toggle a pre-release alert on/off)",
+            reply_markup=build_alert_settings_menu(destination_id, updated_settings),
         )
 
     elif action == "deactivate":
